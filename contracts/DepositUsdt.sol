@@ -10,16 +10,13 @@ contract DepositUsdt is Ownable {
 
     IERC20 public tokenUSDT;
 
-    address[] public financeAddrs;
-
-    uint256 public nonce; //防重
-
-    event FinanceAdded(address indexed addr);
-    event FinanceRemoved(address indexed addr);
+    address[] public treasuries;
+    uint256 public nextTreasuryIndex;
+    event TreasuriesUpdated(address[] treasuries);
     event Deposit(
         address indexed user,
         uint256 amount,
-        address indexed finance
+        address indexed treasury
     );
 
     constructor(address _usdt) {
@@ -27,41 +24,32 @@ contract DepositUsdt is Ownable {
         tokenUSDT = IERC20(_usdt);
     }
 
-    function setFinanceAddresses(address[] calldata _list) external onlyOwner {
+    function setTreasuries(address[] calldata _list) external onlyOwner {
         require(_list.length > 0, "empty");
-        financeAddrs = _list;
+        delete treasuries;
+        for (uint256 i = 0; i < _list.length; i++) {
+            require(_list[i] != address(0), "zero address");
+            treasuries.push(_list[i]);
+        }
+        nextTreasuryIndex = 0;
+        emit TreasuriesUpdated(treasuries);
     }
 
-    function _randomFinance() internal returns (address) {
-        require(financeAddrs.length > 0, "no finance");
-        nonce++;
-        uint256 rand = uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    msg.sender,
-                    nonce,
-                    block.prevrandao
-                )
-            )
-        );
-
-        return financeAddrs[rand % financeAddrs.length];
+    function getTreasuries() external view returns (address[] memory) {
+        return treasuries;
     }
 
     function deposit(uint256 amount) external {
         require(amount > 0, "amount = 0");
+        require(treasuries.length > 0, "no treasury");
 
         tokenUSDT.safeTransferFrom(msg.sender, address(this), amount);
 
-        address finance = _randomFinance();
+        address treasury = treasuries[nextTreasuryIndex];
+        nextTreasuryIndex = (nextTreasuryIndex + 1) % treasuries.length;
 
-        tokenUSDT.safeTransfer(finance, amount);
+        tokenUSDT.safeTransfer(treasury, amount);
 
-        emit Deposit(msg.sender, amount, finance);
-    }
-
-    function getFinance() external view returns (address[] memory) {
-        return financeAddrs;
+        emit Deposit(msg.sender, amount, treasury);
     }
 }

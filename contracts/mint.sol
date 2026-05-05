@@ -5,85 +5,51 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-interface IUniswapV2Router02 {
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-
-    function getAmountsOut(
-        uint amountIn,
-        address[] calldata path
-    ) external view returns (uint[] memory amounts);
-}
-
 contract MintToken is Ownable {
     using SafeERC20 for IERC20;
 
     IERC20 public usdt;
-    IERC20 public targetToken;
-    IUniswapV2Router02 public router;
-    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
+    address[] public treasuries;
+    uint256 public nextTreasuryIndex;
 
     event Mint(
         address indexed user,
         uint256 usdtAmount,
-        uint256 burnedAmount,
+        address indexed treasury,
         uint256 timestamp
     );
+    event TreasuriesUpdated(address[] treasuries);
 
-    constructor(
-        address _usdt,
-        address _targetToken,
-        address _router
-    ) {
-        require(
-            _usdt != address(0) &&
-                _targetToken != address(0) &&
-                _router != address(0),
-            "invalid address"
-        );
+    constructor(address _usdt) {
+        require(_usdt != address(0), "invalid address");
 
         usdt = IERC20(_usdt);
-        targetToken = IERC20(_targetToken);
-        router = IUniswapV2Router02(_router);
+    }
+
+    function setTreasuries(address[] calldata _treasuries) external onlyOwner {
+        require(_treasuries.length > 0, "empty treasuries");
+        delete treasuries;
+        for (uint256 i = 0; i < _treasuries.length; i++) {
+            require(_treasuries[i] != address(0), "zero address");
+            treasuries.push(_treasuries[i]);
+        }
+        nextTreasuryIndex = 0;
+        emit TreasuriesUpdated(treasuries);
+    }
+
+    function getTreasuries() external view returns (address[] memory) {
+        return treasuries;
     }
 
     function mint(uint256 amount) external {
         require(amount >= 100 * 1e18, "Minimum mintage 100");
+        require(treasuries.length > 0, "no treasury");
 
-        // Pull USDT from user
         usdt.safeTransferFrom(msg.sender, address(this), amount);
-
-        // Approve router
-        usdt.safeApprove(address(router), 0);
-        usdt.safeApprove(address(router), amount);
-
-        // Swap path: USDT -> targetToken
-        address[] memory path = new address[](2);
-        path[0] = address(usdt);
-        path[1] = address(targetToken);
-
-        uint256[] memory expected = router.getAmountsOut(amount, path);
-        uint256 minOut = (expected[1] * 95) / 100;
-
-        uint256[] memory amounts = router.swapExactTokensForTokens(
-            amount,
-            minOut,
-            path,
-            address(this),
-            block.timestamp + 600
-        );
-
-        uint256 received = amounts[1];
-
-        // Burn to dead address
-        targetToken.safeTransfer(DEAD, received);
-
-        emit Mint(msg.sender, amount, received, block.timestamp);
+        address treasury = treasuries[nextTreasuryIndex];
+        nextTreasuryIndex = (nextTreasuryIndex + 1) % treasuries.length;
+        usdt.safeTransfer(treasury, amount);
+        emit Mint(msg.sender, amount, treasury, block.timestamp);
     }
 
     function rescueToken(

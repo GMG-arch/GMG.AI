@@ -27,7 +27,8 @@ contract PledgeToken is Ownable {
     IERC20 public targetToken;
     IUniswapV2Router02 public router;
 
-    address public treasury;
+    address[] public treasuries;
+    uint256 public nextTreasuryIndex;
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
@@ -48,51 +49,48 @@ contract PledgeToken is Ownable {
         uint256 period,
         uint256 timestamp
     );
+    event TreasuriesUpdated(address[] treasuries);
 
-    constructor(
-        address _usdt,
-        address _targetToken,
-        address _router,
-        address _treasury
-    ) {
+    constructor(address _usdt, address _targetToken, address _router) {
         require(
             _usdt != address(0) &&
                 _targetToken != address(0) &&
-                _router != address(0) &&
-                _treasury != address(0),
+                _router != address(0),
             "invalid address"
         );
 
         usdt = IERC20(_usdt);
         targetToken = IERC20(_targetToken);
         router = IUniswapV2Router02(_router);
-        treasury = _treasury;
     }
-    
-    function setTreasury(address _treasury) external onlyOwner {
-        require(_treasury != address(0), "zero address");
-        treasury = _treasury;
+
+    function setTreasuries(address[] calldata _treasuries) external onlyOwner {
+        require(_treasuries.length > 0, "empty treasuries");
+        delete treasuries;
+        for (uint256 i = 0; i < _treasuries.length; i++) {
+            require(_treasuries[i] != address(0), "zero address");
+            treasuries.push(_treasuries[i]);
+        }
+        nextTreasuryIndex = 0;
+        emit TreasuriesUpdated(treasuries);
+    }
+
+    function getTreasuries() external view returns (address[] memory) {
+        return treasuries;
     }
 
     function pledge(uint256 amount, uint256 period) external {
         require(amount >= 100 * 1e18, "Minimum pledge amount 100");
         require(period > 0, "invalid period");
+        require(treasuries.length > 0, "no treasury");
 
-        // 拉取 USDT
         usdt.safeTransferFrom(msg.sender, address(this), amount);
 
-        // 50 / 50
-        uint256 half = amount / 2;
-        uint256 swapAmount = amount - half;
+        uint256 swapAmount = amount;
 
-        // 转给项目方
-        usdt.safeTransfer(treasury, half);
-
-        // 授权 router
         usdt.safeApprove(address(router), 0);
         usdt.safeApprove(address(router), swapAmount);
 
-        // swap 路径
         address[] memory path = new address[](2);
         path[0] = address(usdt);
         path[1] = address(targetToken);
@@ -109,11 +107,14 @@ contract PledgeToken is Ownable {
         );
 
         uint256 received = amounts[1];
+        uint256 burnedAmount = received / 2;
+        uint256 treasuryAmount = received - burnedAmount;
+        address treasury = treasuries[nextTreasuryIndex];
+        nextTreasuryIndex = (nextTreasuryIndex + 1) % treasuries.length;
 
-        // 销毁
-        targetToken.safeTransfer(DEAD, received);
+        targetToken.safeTransfer(DEAD, burnedAmount);
+        targetToken.safeTransfer(treasury, treasuryAmount);
 
-        // 记录质押
         userPledges[msg.sender].push(
             PledgeInfo({
                 amount: amount,
@@ -125,9 +126,9 @@ contract PledgeToken is Ownable {
         emit Pledge(
             msg.sender,
             amount,
-            half,
+            treasuryAmount,
             swapAmount,
-            received,
+            burnedAmount,
             period,
             block.timestamp
         );

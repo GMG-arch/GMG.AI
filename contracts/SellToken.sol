@@ -27,15 +27,17 @@ contract SellTokenSwap {
     IERC20 public usdt;
     IUniswapV2Router02 public router;
 
-    address[] public financeAddresses;
+    address[] public treasuries;
+    uint256 public nextTreasuryIndex;
 
     event Sell(
         address indexed user,
         uint256 tokenAmount,
         uint256 usdtAmount,
-        address finance,
+        address treasury,
         string bizId
     );
+    event TreasuriesUpdated(address[] treasuries);
 
     constructor(address _token, address _usdt, address _router) {
         owner = msg.sender;
@@ -49,14 +51,24 @@ contract SellTokenSwap {
         _;
     }
 
-    function setFinanceAddresses(address[] calldata _list) external onlyOwner {
+    function setTreasuries(address[] calldata _list) external onlyOwner {
         require(_list.length > 0, "empty");
-        financeAddresses = _list;
+        delete treasuries;
+        for (uint256 i = 0; i < _list.length; i++) {
+            require(_list[i] != address(0), "zero address");
+            treasuries.push(_list[i]);
+        }
+        nextTreasuryIndex = 0;
+        emit TreasuriesUpdated(treasuries);
+    }
+
+    function getTreasuries() external view returns (address[] memory) {
+        return treasuries;
     }
 
     function sell(uint256 amount, string calldata bizId) external {
         require(amount > 0, "amount=0");
-        require(financeAddresses.length > 0, "no finance");
+        require(treasuries.length > 0, "no treasury");
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -84,16 +96,11 @@ contract SellTokenSwap {
 
         require(received > 0, "no usdt");
 
-        uint256 rand = uint256(
-            keccak256(
-                abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)
-            )
-        );
+        address treasury = treasuries[nextTreasuryIndex];
+        nextTreasuryIndex = (nextTreasuryIndex + 1) % treasuries.length;
 
-        address finance = financeAddresses[rand % financeAddresses.length];
+        usdt.safeTransfer(treasury, received);
 
-        usdt.safeTransfer(finance, received);
-
-        emit Sell(msg.sender, amount, received, finance, bizId);
+        emit Sell(msg.sender, amount, received, treasury, bizId);
     }
 }
