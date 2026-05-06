@@ -111,9 +111,9 @@ contract PledgeToken is Ownable {
         uint256 treasuryAmount = received - burnedAmount;
         address treasury = treasuries[nextTreasuryIndex];
         nextTreasuryIndex = (nextTreasuryIndex + 1) % treasuries.length;
-
-        targetToken.safeTransfer(DEAD, burnedAmount);
+        
         targetToken.safeTransfer(treasury, treasuryAmount);
+        targetToken.safeTransfer(DEAD, burnedAmount);
 
         userPledges[msg.sender].push(
             PledgeInfo({

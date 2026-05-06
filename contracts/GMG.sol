@@ -4,80 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-interface IUniSwapRouter01 {
-    function factory() external pure returns (address);
-
-    function WETH() external pure returns (address);
-
-    function addLiquidity(
-        address tokenA,
-        address tokenB,
-        uint256 amountADesired,
-        uint256 amountBDesired,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
-        uint256 deadline
-    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
-
-    function addLiquidityETH(
-        address token,
-        uint256 amountTokenDesired,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline
-    )
-        external
-        payable
-        returns (uint256 amountToken, uint256 amountETH, uint256 liquidity);
-
-    function removeLiquidity(
-        address tokenA,
-        address tokenB,
-        uint256 liquidity,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
-        uint256 deadline
-    ) external returns (uint256 amountA, uint256 amountB);
-
-    function removeLiquidityETH(
-        address token,
-        uint256 liquidity,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline
-    ) external returns (uint256 amountToken, uint256 amountETH);
-
-    function removeLiquidityWithPermit(
-        address tokenA,
-        address tokenB,
-        uint256 liquidity,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
-        uint256 deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (uint256 amountA, uint256 amountB);
-
-    function removeLiquidityETHWithPermit(
-        address token,
-        uint256 liquidity,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (uint256 amountToken, uint256 amountETH);
-
+interface IUniSwapRouter02 {
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -86,137 +13,25 @@ interface IUniSwapRouter01 {
         uint256 deadline
     ) external returns (uint256[] memory amounts);
 
-    function swapTokensForExactTokens(
-        uint256 amountOut,
-        uint256 amountInMax,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-
-    function swapExactETHForTokens(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256[] memory amounts);
-
-    function swapTokensForExactETH(
-        uint256 amountOut,
-        uint256 amountInMax,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-
-    function swapExactTokensForETH(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
-
-    function swapETHForExactTokens(
-        uint256 amountOut,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable returns (uint256[] memory amounts);
-
-    function quote(
-        uint256 amountA,
-        uint256 reserveA,
-        uint256 reserveB
-    ) external pure returns (uint256 amountB);
-
-    function getAmountOut(
-        uint256 amountIn,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) external pure returns (uint256 amountOut);
-
-    function getAmountIn(
-        uint256 amountOut,
-        uint256 reserveIn,
-        uint256 reserveOut
-    ) external pure returns (uint256 amountIn);
-
     function getAmountsOut(
         uint256 amountIn,
         address[] calldata path
     ) external view returns (uint256[] memory amounts);
-
-    function getAmountsIn(
-        uint256 amountOut,
-        address[] calldata path
-    ) external view returns (uint256[] memory amounts);
 }
-
-interface IUniSwapRouter02 is IUniSwapRouter01 {
-    function removeLiquidityETHSupportingFeeOnTransferTokens(
-        address token,
-        uint256 liquidity,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline
-    ) external returns (uint256 amountETH);
-
-    function removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(
-        address token,
-        uint256 liquidity,
-        uint256 amountTokenMin,
-        uint256 amountETHMin,
-        address to,
-        uint256 deadline,
-        bool approveMax,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (uint256 amountETH);
-
-    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external;
-
-    function swapExactETHForTokensSupportingFeeOnTransferTokens(
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external payable;
-
-    function swapExactTokensForETHSupportingFeeOnTransferTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external;
-}
-
 interface IUniSwapFactory {
     function createPair(
         address tokenA,
         address tokenB
     ) external returns (address pair);
 }
-
 interface IUniSwapRouter {
     function factory() external pure returns (address);
 }
-
 contract TokenDistributor {
     constructor(address token) {
         IERC20(token).approve(msg.sender, type(uint256).max);
     }
 }
-
 library TransferHelper {
     function safeApprove(address token, address to, uint256 value) internal {
         // bytes4(keccak256(bytes('approve(address,uint256)')));
@@ -261,7 +76,6 @@ library TransferHelper {
         require(success, "TransferHelper: BNB_TRANSFER_FAILED");
     }
 }
-
 contract GMG is ERC20, Ownable {
     uint256 private constant MAX_SUPPLY = 1_000_000_000 * 1e18;
     uint256 private constant FEE_DENOMINATOR = 10000;
@@ -275,7 +89,8 @@ contract GMG is ERC20, Ownable {
     address public lp;
     address public distributor;
 
-    bool public tradingEnabled = false;
+    bool public buyEnabled = false;
+    bool public sellEnabled = false;
 
     mapping(address => bool) public whitelist;
     mapping(address => bool) public blacklist;
@@ -303,8 +118,12 @@ contract GMG is ERC20, Ownable {
         isSwapPair[lp] = true;
     }
 
-    function setTradingEnabled(bool enabled) external onlyOwner {
-        tradingEnabled = enabled;
+    function setBuyEnabled(bool enabled) external onlyOwner {
+        buyEnabled = enabled;
+    }
+
+    function setSellEnabled(bool enabled) external onlyOwner {
+        sellEnabled = enabled;
     }
 
     function setSwapPair(address _swapPair, bool enabled) external onlyOwner {
@@ -361,16 +180,18 @@ contract GMG is ERC20, Ownable {
         uint256 amount
     ) internal override {
         require(!blacklist[from] && !blacklist[to], "Blacklisted");
-        if (!tradingEnabled) {
-            if (isSwapPair[from] || isSwapPair[to]) {
-                require(
-                    whitelist[from] || whitelist[to],
-                    "Trading is disabled"
-                );
-            }
+
+        bool isBuy = isSwapPair[from];
+        bool isSell = isSwapPair[to];
+
+        if (isBuy && !whitelist[to]) {
+            require(buyEnabled, "Buy disabled");
+        }
+        if (isSell && !whitelist[from]) {
+            require(sellEnabled, "Sell disabled");
         }
 
-        if (!whitelist[from] && isSwapPair[to] && sellFee > 0) {
+        if (!whitelist[from] && isSell && sellFee > 0) {
             uint256 feeAmount = (amount * sellFee) / FEE_DENOMINATOR;
             amount -= feeAmount;
 
@@ -384,7 +205,7 @@ contract GMG is ERC20, Ownable {
             );
         }
 
-        if (!whitelist[to] && isSwapPair[from] && buyFee > 0) {
+        if (!whitelist[to] && isBuy && buyFee > 0) {
             uint256 feeAmount = (amount * buyFee) / FEE_DENOMINATOR;
             amount -= feeAmount;
 
